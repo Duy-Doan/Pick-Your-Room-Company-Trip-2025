@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pick Your Room – Company Trip 2025 (Fixed)</title>
+<style>
+  :root{
+    --accent:#c20000;
+    --muted:#6b6b6b;
+    --card:#fff;
+  }
+  /* Page */
+  body{
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background:#f3f4f6;
+    margin:0;
+    color:#222;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    background: white;
+    padding:16px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    position:sticky;
+    top:0;
+    z-index:10;
+  }
+  header .left{
+    position:absolute;
+    left:20px;
+  }
+  header img{ height:48px; display:block; }
+  header h1{
+    margin:0;
+    color:var(--accent);
+    font-size:22px;
+    font-weight:700;
+    text-align:center;
+  }
+
+  /* Stats area */
+  .controls{
+    max-width:1100px;
+    margin:18px auto 0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:0 16px;
+  }
+  .stats{
+    font-size:15px;
+    color:var(--muted);
+  }
+  .controls .left,
+  .controls .right{ display:flex; gap:8px; align-items:center; }
+
+  button.primary{
+    background:var(--accent);
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  button.ghost{
+    background:transparent;
+    border:1px solid #ddd;
+    padding:7px 10px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+
+  /* Grid */
+  #room-container{
+    max-width:1100px;
+    margin:18px auto 90px;
+    padding:18px;
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap:20px;
+    justify-items:center;
+    align-items:start;
+  }
+
+  .room-card{
+    width:160px;
+    background:var(--card);
+    border-radius:10px;
+    padding:12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    text-align:center;
+    border:2px solid transparent;
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s;
+  }
+  .room-card:hover{ transform:translateY(-4px); border-color:#e6e6e6; }
+  .room-card.locked{
+    opacity:0.75;
+    cursor:not-allowed;
+    border-color:#f4cccc;
+    background:#fff6f6;
+  }
+  .room-icon{ font-size:40px; margin-bottom:8px; }
+  .room-name{ font-weight:700; margin-bottom:8px; font-size:16px; color:#111; }
+  .room-occupants{ font-size:13px; color:var(--muted); min-height:36px; line-height:1.25; }
+
+  /* Floating add/admin buttons */
+  .fab-add, .fab-admin{
+    position:fixed;
+    border:none;
+    border-radius:12px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.12);
+    cursor:pointer;
+    padding:12px 14px;
+    font-weight:700;
+    color:white;
+  }
+  .fab-add{ right:20px; bottom:20px; background:var(--accent); }
+  .fab-admin{ left:20px; bottom:20px; background:#333; }
+
+  /* Modal (centered) */
+  .modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.45);
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .modal.open{ display:flex; }
+
+  .modal-panel{
+    width:360px;
+    background:white;
+    border-radius:12px;
+    padding:18px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.18);
+    text-align:left;
+  }
+  .modal-panel h3{ margin:0 0 12px; font-size:18px; color:#222; text-align:center; }
+  .modal-panel .sub{ font-size:13px; color:var(--muted); text-align:center; margin-bottom:12px; }
+  .input{
+    width:100%;
+    box-sizing:border-box;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid #dcdcdc;
+    font-size:15px;
+    margin-bottom:14px;
+    outline:none;
+  }
+  .row{ display:flex; gap:10px; }
+  .row .btn{ flex:1; padding:10px 12px; border-radius:8px; border:none; cursor:pointer; font-weight:700; }
+  .btn.register{ background:var(--accent); color:white; }
+  .btn.close{ background:#f0f0f0; color:#333; }
+
+  /* Occupant list inside modal */
+  .occupant-list{ margin-bottom:12px; }
+  .occupant-item{
+    background:#fafafa;
+    border:1px solid #eee;
+    padding:8px 10px;
+    border-radius:8px;
+    margin-bottom:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:14px;
+  }
+  .occupant-item button{ border:none; background:transparent; color:#c00; cursor:pointer; font-weight:700; }
+
+  /* Small responsive tweak */
+  @media (max-width:420px){
+    .modal-panel{ width:92%; padding:14px; }
+    #room-container{ padding:12px; gap:12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="left"><img src="c054929f-e7b4-4cf9-9ee4-0eb99611c227.png" alt="ARUP" /></div>
+  <h1>Pick Your Room – Company Trip 2025</h1>
+</header>
+
+<div class="controls">
+  <div class="left stats" id="summaryLeft">
+    <!-- dynamic total will show here -->
+    <span id="totalInfo">Loading...</span>
+  </div>
+
+  <div class="right">
+    <button class="ghost" id="exportCsvBtn" title="Export CSV">Export CSV</button>
+    <button class="primary" id="openAdmin">Admin</button>
+  </div>
+</div>
+
+<!-- rooms -->
+<div id="room-container" role="list" aria-label="Rooms grid"></div>
+
+<!-- floating buttons -->
+<button class="fab-add" id="fabAdd" title="Add Room">＋</button>
+<button class="fab-admin" id="fabAdmin" title="Admin">Admin</button>
+
+<!-- Modal -->
+<div id="modal" class="modal" aria-hidden="true">
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <h3 id="modalTitle">Room</h3>
+    <div class="sub" id="modalSub">Details</div>
+
+    <div class="occupant-list" id="occupantList"></div>
+
+    <input id="nameInput" class="input" placeholder="Enter your name" autocomplete="off"/>
+
+    <div class="row">
+      <button class="btn register" id="registerBtn">Register</button>
+      <button class="btn close" id="closeBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin simple prompt handled in JS -->
+<script>
+/* ---------------------------
+   Data model & persistence
+   --------------------------- */
+const STORAGE_KEY = 'arup_rooms_v4_fixed';
+let rooms = [];
+let currentRoomIndex = null;
+let isAdmin = false;
+const ADMIN_PASS = '0977549979';
+
+/* Utility: save/load */
+function saveRooms(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms)); }
+function loadRooms(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(raw){
+    try{
+      rooms = JSON.parse(raw);
+      // ensure structure validity
+      if(!Array.isArray(rooms)) throw 0;
+      return;
+    }catch(e){
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }
+  // default init: rooms 1..26, with room1 & 2 single
+  rooms = [];
+  for(let i=1;i<=26;i++){
+    rooms.push({ name:`Room ${i}`, max: (i===1||i===2)?1:2, people:[] });
+  }
+  saveRooms();
+}
+
+/* ---------------------------
+   Rendering
+   --------------------------- */
+const container = document.getElementById('room-container');
+const totalInfo = document.getElementById('totalInfo');
+
+function render(){
+  container.innerHTML = '';
+  rooms.forEach((r, idx)=>{
+    const card = document.createElement('div');
+    card.className = 'room-card' + (r.people.length >= r.max ? ' locked' : '');
+    card.setAttribute('role','listitem');
+    card.innerHTML = `
+      <div class="room-icon">🚪</div>
+      <div class="room-name">${r.name}</div>
+      <div class="room-occupants">${ r.people.length ? r.people.join('<br>') : '<i style="color:#9a9a9a">No occupants</i>' }</div>
+      <div style="margin-top:8px; font-size:12px; color:var(--muted)">${r.people.length}/${r.max} occupants</div>
+    `;
+    // only open modal when not full
+    card.addEventListener('click', (e)=>{
+      if(r.people.length >= r.max){ alert('This room is full.'); return; }
+      openModal(idx);
+    });
+    container.appendChild(card);
+  });
+
+  // update totals
+  const totalPeople = rooms.reduce((s,r)=>s + r.people.length, 0);
+  totalInfo.textContent = `Registered: ${totalPeople} people • Rooms: ${rooms.length}`;
+}
+
+/* ---------------------------
+   Modal (Register)
+   --------------------------- */
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalSub = document.getElementById('modalSub');
+const occupantList = document.getElementById('occupantList');
+const nameInput = document.getElementById('nameInput');
+const registerBtn = document.getElementById('registerBtn');
+const closeBtn = document.getElementById('closeBtn');
+
+function openModal(index){
+  currentRoomIndex = index;
+  const r = rooms[index];
+  modalTitle.textContent = `${r.name} ${r.max===1 ? '(Single)' : '(Double)'}`;
+  modalSub.textContent = `Capacity: ${r.max} • ${r.people.length} registered`;
+  renderOccupants(r);
+  nameInput.value = '';
+  nameInput.focus();
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+}
+function closeModal(){
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden','true');
+  currentRoomIndex = null;
+}
+function renderOccupants(room){
+  occupantList.innerHTML = '';
+  if(room.people.length === 0){
+    const p = document.createElement('div');
+    p.className = 'occupant-item';
+    p.textContent = 'No occupants yet';
+    occupantList.appendChild(p);
+    return;
+  }
+  room.people.forEach((name, i) => {
+    const item = document.createElement('div');
+    item.className = 'occupant-item';
+    item.innerHTML = `<div>${name}</div>`;
+    // allow occupant removal if admin (via button visible) OR allow normal user not to remove (no button)
+    const btn = document.createElement('button');
+    btn.textContent = 'Remove';
+    btn.title = 'Remove occupant (admin only)';
+    btn.style.display = isAdmin ? 'inline-block' : 'none';
+    btn.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      if(!isAdmin){
+        alert('Admin only to remove occupants.');
+        return;
+      }
+      if(confirm(`Remove ${name} from ${room.name}?`)){
+        room.people.splice(i,1);
+        saveRooms();
+        render();
+        openModal(currentRoomIndex); // refresh modal
+      }
+    });
+    item.appendChild(btn);
+    occupantList.appendChild(item);
+  });
+}
+
+/* register */
+registerBtn.addEventListener('click', ()=>{
+  if(currentRoomIndex === null) return;
+  const name = nameInput.value.trim();
+  if(!name) return alert('Please enter a name.');
+  const r = rooms[currentRoomIndex];
+  if(r.people.length >= r.max) return alert('This room is full.');
+  r.people.push(name);
+  saveRooms();
+  render();
+  closeModal();
+});
+
+/* close modal */
+closeBtn.addEventListener('click', closeModal);
+modal.addEventListener('click', (ev)=>{ if(ev.target === modal) closeModal(); });
+
+/* ---------------------------
+   Admin actions & utilities
+   --------------------------- */
+const fabAdd = document.getElementById('fabAdd');
+const fabAdmin = document.getElementById('fabAdmin');
+const openAdminBtn = document.getElementById('openAdmin');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
+
+function promptAdmin(){
+  const p = prompt('Enter admin password:');
+  if(p === ADMIN_PASS){
+    isAdmin = true;
+    alert('Admin logged in.');
+    showAdminMenu();
+  } else {
+    alert('Wrong password.');
+  }
+}
+
+function showAdminMenu(){
+  const totalPeople = rooms.reduce((s,r)=>s + r.people.length, 0);
+  const totalRooms = rooms.length;
+  const choice = prompt(
+`Admin Panel
+Total Rooms: ${totalRooms}
+Total People: ${totalPeople}
+
+Options:
+1 - Add Room
+2 - Delete Room
+3 - Delete Person
+4 - Reset All
+5 - Export CSV
+Enter option number:`
+  );
+  if(!choice) return;
+  switch(choice.trim()){
+    case '1':
+      adminAddRoom();
+      break;
+    case '2':
+      adminDeleteRoom();
+      break;
+    case '3':
+      adminDeletePerson();
+      break;
+    case '4':
+      adminResetAll();
+      break;
+    case '5':
+      exportCSV();
+      break;
+    default: alert('Unknown option.');
+  }
+}
+
+function adminAddRoom(){
+  const type = prompt('Add room type: "single" or "double" (default double):');
+  if(!type) return;
+  const max = type.toLowerCase().startsWith('s') ? 1 : 2;
+  const newIndex = rooms.length + 1;
+  rooms.push({ name:`Room ${newIndex}`, max, people:[] });
+  saveRooms();
+  render();
+  alert(`Added Room ${newIndex} (${max===1?'Single':'Double'})`);
+}
+
+function adminDeleteRoom(){
+  const name = prompt('Enter exact room name to delete (e.g. Room 5):');
+  if(!name) return;
+  const idx = rooms.findIndex(r=>r.name === name);
+  if(idx === -1) return alert('Room not found.');
+  if(!confirm(`Delete ${name}? This will remove all occupants of that room.`)) return;
+  rooms.splice(idx,1);
+  // re-name subsequent rooms to keep naming contiguous
+  rooms = rooms.map((r,i) => ({ ...r, name: `Room ${i+1}` }));
+  saveRooms();
+  render();
+  alert('Room deleted and rooms re-indexed.');
+}
+
+function adminDeletePerson(){
+  const person = prompt('Enter exact person name to remove from all rooms:');
+  if(!person) return;
+  let removed = 0;
+  rooms.forEach(r => {
+    const before = r.people.length;
+    r.people = r.people.filter(p => p !== person);
+    removed += (before - r.people.length);
+  });
+  saveRooms();
+  render();
+  alert(`${removed} entries removed for "${person}".`);
+}
+
+function adminResetAll(){
+  if(!confirm('Reset all data? This cannot be undone.')) return;
+  rooms = [];
+  for(let i=1;i<=26;i++){
+    rooms.push({ name:`Room ${i}`, max:(i===1||i===2)?1:2, people:[] });
+  }
+  saveRooms();
+  render();
+  alert('Reset complete.');
+}
+
+/* Export CSV */
+function exportCSV(){
+  // headers: Room, Max, Occupant1, Occupant2...
+  const rows = [];
+  const maxOcc = Math.max(...rooms.map(r=>r.max));
+  const headers = ['Room','Max','Count'];
+  for(let i=1;i<=maxOcc;i++) headers.push(`Occupant ${i}`);
+  rows.push(headers.join(','));
+  rooms.forEach(r=>{
+    const row = [ `"${r.name}"`, r.max, r.people.length ];
+    for(let i=0;i<maxOcc;i++){
+      row.push(`"${r.people[i] ? r.people[i] : ''}"`);
+    }
+    rows.push(row.join(','));
+  });
+  const csv = rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'arup_rooms_export.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------------------
+   UI wiring
+   --------------------------- */
+fabAdmin.addEventListener('click', promptAdmin);
+openAdminBtn.addEventListener('click', promptAdmin);
+fabAdd.addEventListener('click', ()=>{
+  if(!isAdmin) return alert('Admin only.');
+  adminAddRoom();
+});
+exportCsvBtn.addEventListener('click', ()=>{
+  if(!isAdmin) return alert('Admin only.');
+  exportCSV();
+});
+
+/* Initialize */
+loadRooms();
+render();
+
+/* show-admin hint if already admin (rare) */
+if(isAdmin) console.log('admin ready');
+
+</script>
+</body>
+</html>
