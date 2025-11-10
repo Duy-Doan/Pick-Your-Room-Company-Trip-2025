@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pick Your Room – Company Trip 2025 (with Admin Stats Page)</title>
+<title>Room Booking – Company Trip</title>
 <style>
   :root{ --accent:#c20000; --muted:#6b6b6b; --card:#fff; }
   body{ font-family:"Segoe UI",Roboto,Arial,sans-serif; background:#f3f4f6; margin:0; color:#222; }
@@ -33,7 +33,7 @@
 
   .modal{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; z-index:50; padding:20px; }
   .modal.open{ display:flex; }
-  .modal-panel{ width:360px; background:white; border-radius:12px; padding:18px; box-shadow:0 12px 36px rgba(0,0,0,0.18); text-align:left; }
+  .modal-panel{ width:420px; max-width:92%; background:white; border-radius:12px; padding:18px; box-shadow:0 12px 36px rgba(0,0,0,0.18); text-align:left; }
   .modal-panel h3{ margin:0 0 12px; font-size:18px; color:#222; text-align:center; }
   .modal-panel .sub{ font-size:13px; color:var(--muted); text-align:center; margin-bottom:12px; }
   .input{ width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1px solid #dcdcdc; font-size:15px; margin-bottom:14px; outline:none; }
@@ -57,8 +57,8 @@
 <body>
 
 <header>
-  <div class="left"><img src="c054929f-e7b4-4cf9-9ee4-0eb99611c227.png" alt="ARUP" /></div>
-  <h1>Pick Your Room – Company Trip 2025</h1>
+  <div class="left"><img src="c054929f-e7b4-4cf9-9ee4-0eb99611c227.png" alt="Company" /></div>
+  <h1>Room Booking – Company Trip</h1>
 </header>
 
 <div class="controls" id="main-controls">
@@ -69,10 +69,11 @@
   </div>
 </div>
 
-<!-- Main content -->
+<!-- Main page -->
 <div class="sections-wrap" id="main-page">
   <div class="section" id="section-single">
-    <div class="header"><h2>Single Rooms</h2>
+    <div class="header">
+      <h2>Single Rooms</h2>
       <div class="controls-inline">
         <button class="ghost admin-only" id="single-remove">− Remove Room</button>
         <button class="ghost" id="single-add">＋ Add Room</button>
@@ -82,7 +83,8 @@
   </div>
 
   <div class="section" id="section-double">
-    <div class="header"><h2>Double Rooms</h2>
+    <div class="header">
+      <h2>Double Rooms</h2>
       <div class="controls-inline">
         <button class="ghost admin-only" id="double-remove">− Remove Room</button>
         <button class="ghost" id="double-add">＋ Add Room</button>
@@ -91,14 +93,15 @@
     <div class="room-grid" id="grid-double"></div>
   </div>
 
-  <div class="section" id="section-triple">
-    <div class="header"><h2>Triple Rooms</h2>
+  <div class="section" id="section-twin">
+    <div class="header">
+      <h2>Twin Room (two separate single beds)</h2>
       <div class="controls-inline">
-        <button class="ghost admin-only" id="triple-remove">− Remove Room</button>
-        <button class="ghost" id="triple-add">＋ Add Room</button>
+        <button class="ghost admin-only" id="twin-remove">− Remove Room</button>
+        <button class="ghost" id="twin-add">＋ Add Room</button>
       </div>
     </div>
-    <div class="room-grid" id="grid-triple"></div>
+    <div class="room-grid" id="grid-twin"></div>
   </div>
 </div>
 
@@ -107,19 +110,22 @@
   <h2>📊 Room Statistics</h2>
   <div id="stats-summary"></div>
   <table id="stats-table">
-    <thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Occupants</th><th>Registered Time</th></tr></thead>
+    <thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Occupant</th><th>Registered Time</th></tr></thead>
     <tbody></tbody>
   </table>
   <button class="back-btn" onclick="backToMain()">← Back to Main Page</button>
 </div>
 
 <!-- Modal -->
-<div id="modal" class="modal">
+<div id="modal" class="modal" aria-hidden="true">
   <div class="modal-panel">
     <h3 id="modalTitle">Room</h3>
     <div class="sub" id="modalSub">Details</div>
+
     <div class="occupant-list" id="occupantList"></div>
+
     <input id="nameInput" class="input" placeholder="Enter your name" autocomplete="off"/>
+
     <div class="row">
       <button class="btn register" id="registerBtn">Register</button>
       <button class="btn close" id="closeBtn">Close</button>
@@ -127,121 +133,406 @@
   </div>
 </div>
 
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
 <script>
-const STORAGE_KEY='arup_rooms_v8';
-const ADMIN_PASS='0977549979';
-let rooms=[],isAdmin=false,currentRoomIndex=null;
-
-function loadRooms(){
-  const raw=localStorage.getItem(STORAGE_KEY);
-  if(raw){try{rooms=JSON.parse(raw);return;}catch(e){}}
-  rooms=[];
-  for(let i=1;i<=5;i++)rooms.push({name:`Single Room ${i}`,type:'single',max:1,people:[]});
-  for(let i=1;i<=5;i++)rooms.push({name:`Double Room ${i}`,type:'double',max:2,people:[]});
-  for(let i=1;i<=5;i++)rooms.push({name:`Triple Room ${i}`,type:'triple',max:3,people:[]});
-  saveRooms();
-}
-function saveRooms(){localStorage.setItem(STORAGE_KEY,JSON.stringify(rooms));}
-function getRoomsByType(t){return rooms.map((r,i)=>({...r,__idx:i})).filter(r=>r.type===t);}
-function reindexNames(t){const b=t==='single'?'Single Room':t==='double'?'Double Room':'Triple Room';getRoomsByType(t).forEach((r,i)=>rooms[r.__idx].name=`${b} ${i+1}`);}
-
-const gridSingle=document.getElementById('grid-single'),gridDouble=document.getElementById('grid-double'),gridTriple=document.getElementById('grid-triple'),totalInfo=document.getElementById('totalInfo');
-function render(){
-  gridSingle.innerHTML=gridDouble.innerHTML=gridTriple.innerHTML='';
-  rooms.forEach((r,idx)=>{
-    const card=document.createElement('div');
-    card.className='room-card'+(r.people.length>=r.max?' locked':'');
-    card.innerHTML=`<div class="room-icon">🚪</div>
-    <div class="room-name">${r.name}</div>
-    <div class="room-occupants">${r.people.length?r.people.map(p=>p.name).join('<br>'):'<i style="color:#aaa">No occupants</i>'}</div>
-    <div style="margin-top:8px;font-size:12px;color:var(--muted)">${r.people.length}/${r.max} occupants</div>`;
-    card.onclick=()=>{if(r.people.length>=r.max)return alert('This room is full.');openModal(idx);};
-    if(r.type==='single')gridSingle.appendChild(card);
-    else if(r.type==='double')gridDouble.appendChild(card);
-    else gridTriple.appendChild(card);
-  });
-  const totalPeople=rooms.reduce((s,r)=>s+r.people.length,0);
-  totalInfo.textContent=`Total: ${rooms.length} rooms • ${totalPeople} people`;
-  document.querySelectorAll('.admin-only').forEach(b=>b.style.display=isAdmin?'inline-block':'none');
-}
-
-function addRoom(type){
-  const base=type==='single'?'Single Room':type==='double'?'Double Room':'Triple Room';
-  const c=getRoomsByType(type).length;
-  const name=prompt('Enter new room name:',`${base} ${c+1}`);if(!name)return;
-  const max=type==='single'?1:type==='double'?2:3;
-  rooms.push({name,type,max,people:[]});saveRooms();render();
-}
-function removeRoom(type){if(!isAdmin)return alert('Admin only.');const list=getRoomsByType(type);if(!list.length)return alert('No rooms left.');const last=list.pop();if(!confirm(`Remove ${last.name}?`))return;rooms.splice(last.__idx,1);reindexNames(type);saveRooms();render();}
-document.getElementById('single-add').onclick=()=>addRoom('single');
-document.getElementById('double-add').onclick=()=>addRoom('double');
-document.getElementById('triple-add').onclick=()=>addRoom('triple');
-document.getElementById('single-remove').onclick=()=>removeRoom('single');
-document.getElementById('double-remove').onclick=()=>removeRoom('double');
-document.getElementById('triple-remove').onclick=()=>removeRoom('triple');
-
-const modal=document.getElementById('modal'),modalTitle=document.getElementById('modalTitle'),modalSub=document.getElementById('modalSub'),occupantList=document.getElementById('occupantList'),nameInput=document.getElementById('nameInput');
-function openModal(i){currentRoomIndex=i;const r=rooms[i];modalTitle.textContent=r.name;modalSub.textContent=`Capacity: ${r.max} • Registered: ${r.people.length}`;renderOccupants(r);modal.classList.add('open');}
-function closeModal(){modal.classList.remove('open');}
-function renderOccupants(r){
-  occupantList.innerHTML='';if(!r.people.length){occupantList.innerHTML='<div class="occupant-item">No occupants yet</div>';return;}
-  r.people.forEach((p,i)=>{const it=document.createElement('div');it.className='occupant-item';it.innerHTML=`<div>${p.name} <small style="color:#888">(${p.time})</small></div>`;const b=document.createElement('button');b.textContent='Remove';b.style.display=isAdmin?'inline-block':'none';b.onclick=()=>{if(confirm(`Remove ${p.name}?`)){r.people.splice(i,1);saveRooms();render();openModal(currentRoomIndex);}};it.appendChild(b);occupantList.appendChild(it);});
-}
-document.getElementById('registerBtn').onclick=()=>{
-  if(currentRoomIndex===null)return;const name=nameInput.value.trim();if(!name)return alert('Enter a name.');
-  const r=rooms[currentRoomIndex];if(r.people.length>=r.max)return alert('Room full.');
-  const now=new Date().toLocaleString();r.people.push({name,time:now});saveRooms();render();closeModal();
+// ===== CONFIG (you provided this) =====
+const firebaseConfig = {
+  apiKey: "AIzaSyDkLZiqaOlsdhVmDABQQjkIk09XRGsXJFs",
+  authDomain: "room-booking-app-c7db8.firebaseapp.com",
+  databaseURL: "https://room-booking-app-c7db8-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "room-booking-app-c7db8",
+  storageBucket: "room-booking-app-c7db8.firebasestorage.app",
+  messagingSenderId: "343921663087",
+  appId: "1:343921663087:web:2413b98b2c2bf452f2c19a",
+  measurementId: "G-04HNG2JS2N"
 };
-document.getElementById('closeBtn').onclick=closeModal;modal.onclick=e=>{if(e.target===modal)closeModal();};
+// ======================================
 
-document.getElementById('openAdmin').onclick=promptAdmin;
-document.getElementById('exportCsvBtn').onclick=()=>{if(!isAdmin)return alert('Admin only.');exportCSV();};
-function promptAdmin(){const p=prompt('Enter admin password:');if(p===ADMIN_PASS){isAdmin=true;alert('Admin logged in.');render();showAdminMenu();}else alert('Wrong password.');}
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Admin password (kept simple; change if needed)
+const ADMIN_PASS = '0977549979';
+
+// Global state
+let rooms = []; // array of { name, type, max, people: [{name, time}, ...] }
+let currentRoomIndex = null;
+let isAdmin = false;
+
+// Helpers
+function nowString(){
+  return new Date().toLocaleString();
+}
+
+function saveRoomsToFirebase(){
+  // write entire rooms array to /rooms node
+  db.ref('rooms').set(rooms).catch(err => console.error('Firebase write error:', err));
+}
+
+function ensureDefaultsAndSave(){
+  if(!rooms || !Array.isArray(rooms) || rooms.length === 0){
+    // create default: 5 rooms each type
+    rooms = [];
+    for(let i=1;i<=5;i++) rooms.push({ name:`Single Room ${i}`, type:'single', max:1, people:[] });
+    for(let i=1;i<=5;i++) rooms.push({ name:`Double Room ${i}`, type:'double', max:2, people:[] });
+    for(let i=1;i<=5;i++) rooms.push({ name:`Twin Room ${i}`, type:'twin', max:2, people:[] });
+    saveRoomsToFirebase();
+  }
+}
+
+// Real-time listener (keeps local data synced)
+db.ref('rooms').on('value', snapshot => {
+  const val = snapshot.val();
+  if(val === null){
+    rooms = [];
+    ensureDefaultsAndSave();
+    render();
+    return;
+  }
+  // Firebase may store arrays as objects; normalize to array
+  if(Array.isArray(val)) rooms = val;
+  else {
+    // val might be object with numeric keys or others; convert to array by index order
+    const arr = [];
+    Object.keys(val).forEach(k => {
+      // if key numeric index, push at corresponding, else push at end
+      if(!isNaN(parseInt(k))) arr[parseInt(k)] = val[k];
+      else arr.push(val[k]);
+    });
+    // compact undefined holes
+    rooms = arr.filter(r => r !== undefined);
+  }
+  // make sure structure OK
+  rooms = rooms.map(r => ({
+    name: r.name || 'Room',
+    type: r.type || 'double',
+    max: (typeof r.max === 'number') ? r.max : (r.type === 'single' ? 1 : 2),
+    people: Array.isArray(r.people) ? r.people : []
+  }));
+  ensureDefaultsAndSave();
+  render();
+});
+
+// UI wiring
+const gridSingle = document.getElementById('grid-single');
+const gridDouble = document.getElementById('grid-double');
+const gridTwin = document.getElementById('grid-twin');
+const totalInfo = document.getElementById('totalInfo');
+
+function render(){
+  // clear
+  gridSingle.innerHTML = '';
+  gridDouble.innerHTML = '';
+  gridTwin.innerHTML = '';
+
+  rooms.forEach((r, idx) => {
+    const card = document.createElement('div');
+    card.className = 'room-card' + (r.people.length >= r.max ? ' locked' : '');
+    card.innerHTML = `
+      <div class="room-icon">🚪</div>
+      <div class="room-name">${r.name}</div>
+      <div class="room-occupants">${ r.people.length ? r.people.map(p=>p.name).join('<br>') : '<i style="color:#9a9a9a">No occupants</i>' }</div>
+      <div style="margin-top:8px; font-size:12px; color:var(--muted)">${r.people.length}/${r.max} occupants</div>
+    `;
+    card.addEventListener('click', ()=> {
+      if(r.people.length >= r.max){
+        alert('This room is full.');
+        return;
+      }
+      openModal(idx);
+    });
+    if(r.type === 'single') gridSingle.appendChild(card);
+    else if(r.type === 'double') gridDouble.appendChild(card);
+    else gridTwin.appendChild(card);
+  });
+
+  const totalPeople = rooms.reduce((s,r)=>s + (Array.isArray(r.people) ? r.people.length : 0), 0);
+  const counts = {
+    single: rooms.filter(r=>r.type==='single').length,
+    double: rooms.filter(r=>r.type==='double').length,
+    twin: rooms.filter(r=>r.type==='twin').length
+  };
+  totalInfo.textContent = `Total: ${rooms.length} rooms • ${totalPeople} people (Single:${counts.single} • Double:${counts.double} • Twin:${counts.twin})`;
+
+  // Show/hide admin-only controls
+  document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? 'inline-block' : 'none');
+}
+
+/* Add / Remove Rooms */
+function addRoom(type){
+  const base = type === 'single' ? 'Single Room' : type === 'double' ? 'Double Room' : 'Twin Room';
+  const count = rooms.filter(r=>r.type===type).length;
+  const name = prompt('Enter new room name:', `${base} ${count+1}`);
+  if(!name) return;
+  const max = type === 'single' ? 1 : 2;
+  rooms.push({ name, type, max, people:[] });
+  // save
+  saveRoomsToFirebase();
+}
+function removeRoom(type){
+  if(!isAdmin) return alert('Only admin can remove rooms.');
+  const list = rooms.map((r,i)=>({ ...r, __idx:i })).filter(r=>r.type===type);
+  if(list.length === 0) return alert('No rooms to remove.');
+  const last = list[list.length - 1];
+  if(!confirm(`Remove ${last.name}? This will remove occupants too.`)) return;
+  rooms.splice(last.__idx, 1);
+  // reindex default-style names within type if you want contiguous names
+  reindexNames(type);
+  saveRoomsToFirebase();
+}
+function reindexNames(type){
+  const base = type === 'single' ? 'Single Room' : type === 'double' ? 'Double Room' : 'Twin Room';
+  let counter = 1;
+  rooms.forEach((r, i) => {
+    if(r.type === type){
+      // rename only if current name matches default pattern or we want strict renaming
+      r.name = `${base} ${counter++}`;
+    }
+  });
+}
+
+/* Button wiring */
+document.getElementById('single-add').addEventListener('click', ()=>addRoom('single'));
+document.getElementById('double-add').addEventListener('click', ()=>addRoom('double'));
+document.getElementById('twin-add').addEventListener('click', ()=>addRoom('twin'));
+
+document.getElementById('single-remove').addEventListener('click', ()=>removeRoom('single'));
+document.getElementById('double-remove').addEventListener('click', ()=>removeRoom('double'));
+document.getElementById('twin-remove').addEventListener('click', ()=>removeRoom('twin'));
+
+/* Modal: register & occupants */
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalSub = document.getElementById('modalSub');
+const occupantList = document.getElementById('occupantList');
+const nameInput = document.getElementById('nameInput');
+const registerBtn = document.getElementById('registerBtn');
+const closeBtn = document.getElementById('closeBtn');
+
+function openModal(index){
+  currentRoomIndex = index;
+  const r = rooms[index];
+  modalTitle.textContent = r.name;
+  modalSub.textContent = `Capacity: ${r.max} • Registered: ${Array.isArray(r.people)?r.people.length:0}`;
+  renderOccupants(r);
+  nameInput.value = '';
+  nameInput.focus();
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+}
+function closeModal(){
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden','true');
+  currentRoomIndex = null;
+}
+function renderOccupants(room){
+  occupantList.innerHTML = '';
+  if(!Array.isArray(room.people) || room.people.length === 0){
+    occupantList.innerHTML = '<div class="occupant-item">No occupants yet</div>';
+    return;
+  }
+  room.people.forEach((p, i) => {
+    const item = document.createElement('div');
+    item.className = 'occupant-item';
+    item.innerHTML = `<div>${p.name} <small style="color:#666">(${p.time})</small></div>`;
+    const btn = document.createElement('button');
+    btn.textContent = 'Remove';
+    btn.style.display = isAdmin ? 'inline-block' : 'none';
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      if(!isAdmin){ alert('Admin only to remove occupants.'); return; }
+      if(confirm(`Remove ${p.name} from ${room.name}?`)){
+        room.people.splice(i,1);
+        saveRoomsToFirebase();
+      }
+    };
+    item.appendChild(btn);
+    occupantList.appendChild(item);
+  });
+}
+
+registerBtn.addEventListener('click', ()=>{
+  if(currentRoomIndex === null) return;
+  const name = nameInput.value.trim();
+  if(!name) return alert('Please enter a name.');
+  const r = rooms[currentRoomIndex];
+  if(!Array.isArray(r.people)) r.people = [];
+  if(r.people.length >= r.max) return alert('This room is full.');
+  r.people.push({ name, time: nowString() });
+  saveRoomsToFirebase();
+  closeModal();
+});
+closeBtn.addEventListener('click', closeModal);
+modal.addEventListener('click', (ev)=> { if(ev.target === modal) closeModal(); });
+
+/* Admin */
+document.getElementById('openAdmin').addEventListener('click', promptAdmin);
+document.getElementById('exportCsvBtn').addEventListener('click', ()=>{ if(!isAdmin) return alert('Admin only.'); exportCSV(); });
+
+function promptAdmin(){
+  const pass = prompt('Enter admin password:');
+  if(pass === ADMIN_PASS){
+    isAdmin = true;
+    alert('Admin logged in.');
+    render();
+    showAdminMenu();
+  } else {
+    alert('Wrong password.');
+  }
+}
 
 function showAdminMenu(){
-  const totalPeople=rooms.reduce((s,r)=>s+r.people.length,0);
-  const totalRooms=rooms.length;
-  const choice=prompt(`Admin Panel
+  const totalPeople = rooms.reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0), 0);
+  const totalRooms = rooms.length;
+  const choice = prompt(
+`Admin Panel
 Total Rooms: ${totalRooms}
 Total People: ${totalPeople}
 
 Options:
-1 - Show Summary
-2 - Delete Person
-3 - Delete Room
-4 - Reset Data
+1 - Show Statistics
+2 - Delete Person by Name
+3 - Delete Room by Name
+4 - Reset All Data
 5 - Export CSV
 6 - Open Statistics Page
-Enter number:`);if(!choice)return;
-  switch(choice){
-    case'1':adminStats();break;
-    case'2':adminDeletePerson();break;
-    case'3':adminDeleteRoom();break;
-    case'4':adminReset();break;
-    case'5':exportCSV();break;
-    case'6':openStatsPage();break;
+Enter option number:` );
+  if(!choice) return;
+  switch(choice.trim()){
+    case '1': adminStats(); break;
+    case '2': adminDeletePerson(); break;
+    case '3': adminDeleteRoomByName(); break;
+    case '4': adminReset(); break;
+    case '5': exportCSV(); break;
+    case '6': openStatsPage(); break;
+    default: alert('Unknown option.');
   }
 }
-function adminStats(){alert('Single:'+getRoomsByType('single').length+' Double:'+getRoomsByType('double').length+' Triple:'+getRoomsByType('triple').length);}
-function adminDeletePerson(){const n=prompt('Enter name to delete:');if(!n)return;rooms.forEach(r=>r.people=r.people.filter(p=>p.name!==n));saveRooms();render();}
-function adminDeleteRoom(){const n=prompt('Enter exact room name:');if(!n)return;const i=rooms.findIndex(r=>r.name===n);if(i===-1)return alert('Not found');const t=rooms[i].type;rooms.splice(i,1);reindexNames(t);saveRooms();render();}
-function adminReset(){if(!confirm('Reset all data?'))return;localStorage.removeItem(STORAGE_KEY);loadRooms();render();}
-function exportCSV(){const rows=['Room,Type,Max,Count,Occupants,Time'];rooms.forEach(r=>{r.people.forEach(p=>rows.push(`${r.name},${r.type},${r.max},${r.people.length},"${p.name}","${p.time}"`));});const csv=rows.join('\n');const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='rooms_export.csv';a.click();}
-function openStatsPage(){document.getElementById('main-page').style.display='none';document.getElementById('main-controls').style.display='none';const page=document.getElementById('stats-page');page.style.display='block';renderStatsTable();}
-function renderStatsTable(){
-  const tbody=document.querySelector('#stats-table tbody');tbody.innerHTML='';
-  const summary=document.getElementById('stats-summary');
-  const counts={single:getRoomsByType('single').length,double:getRoomsByType('double').length,triple:getRoomsByType('triple').length};
-  const people={single:getRoomsByType('single').reduce((s,r)=>s+r.people.length,0),double:getRoomsByType('double').reduce((s,r)=>s+r.people.length,0),triple:getRoomsByType('triple').reduce((s,r)=>s+r.people.length,0)};
-  summary.innerHTML=`<b>Single:</b> ${counts.single} rooms, ${people.single} people<br><b>Double:</b> ${counts.double} rooms, ${people.double} people<br><b>Triple:</b> ${counts.triple} rooms, ${people.triple} people`;
-  rooms.forEach(r=>r.people.forEach(p=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${r.name}</td><td>${r.type}</td><td>${r.max}</td><td>${p.name}</td><td>${p.time}</td>`;
-    tbody.appendChild(tr);
-  }));
+
+/* Admin utilities */
+function adminStats(){
+  const singleCount = rooms.filter(r=>r.type==='single').length;
+  const doubleCount = rooms.filter(r=>r.type==='double').length;
+  const twinCount = rooms.filter(r=>r.type==='twin').length;
+  const singlePeople = rooms.filter(r=>r.type==='single').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0);
+  const doublePeople = rooms.filter(r=>r.type==='double').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0);
+  const twinPeople = rooms.filter(r=>r.type==='twin').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0);
+  alert(`Statistics:\nSingle: ${singleCount} rooms, ${singlePeople} people\nDouble: ${doubleCount} rooms, ${doublePeople} people\nTwin: ${twinCount} rooms, ${twinPeople} people`);
 }
-function backToMain(){document.getElementById('stats-page').style.display='none';document.getElementById('main-page').style.display='grid';document.getElementById('main-controls').style.display='flex';}
-loadRooms();render();
+
+function adminDeletePerson(){
+  const name = prompt('Enter exact person name to remove from all rooms:');
+  if(!name) return;
+  let removed = 0;
+  rooms.forEach(r => {
+    if(Array.isArray(r.people)){
+      const before = r.people.length;
+      r.people = r.people.filter(p => p.name !== name);
+      removed += (before - r.people.length);
+    }
+  });
+  saveRoomsToFirebase();
+  alert(`Removed ${removed} entries for "${name}".`);
+}
+
+function adminDeleteRoomByName(){
+  const name = prompt('Enter exact room name to delete (e.g. "Double Room 3"):');
+  if(!name) return;
+  const idx = rooms.findIndex(r=>r.name === name);
+  if(idx === -1) return alert('Room not found.');
+  if(!confirm(`Delete room "${name}"?`)) return;
+  const type = rooms[idx].type;
+  rooms.splice(idx,1);
+  reindexNames(type);
+  saveRoomsToFirebase();
+  alert('Room deleted.');
+}
+
+function adminReset(){
+  if(!confirm('Reset all data to default (5 rooms per type)?')) return;
+  rooms = [];
+  for(let i=1;i<=5;i++) rooms.push({ name:`Single Room ${i}`, type:'single', max:1, people:[] });
+  for(let i=1;i<=5;i++) rooms.push({ name:`Double Room ${i}`, type:'double', max:2, people:[] });
+  for(let i=1;i<=5;i++) rooms.push({ name:`Twin Room ${i}`, type:'twin', max:2, people:[] });
+  saveRoomsToFirebase();
+  alert('Reset complete.');
+}
+
+/* Export CSV (admin) */
+function exportCSV(){
+  const rows = [];
+  rows.push(['Room','Type','Capacity','Occupant','RegisteredTime'].join(','));
+  rooms.forEach(r=>{
+    if(Array.isArray(r.people) && r.people.length){
+      r.people.forEach(p=>{
+        rows.push([`"${r.name}"`, r.type, r.max, `"${p.name}"`, `"${p.time}"`].join(','));
+      });
+    } else {
+      rows.push([`"${r.name}"`, r.type, r.max, '',''].join(','));
+    }
+  });
+  const csv = rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'rooms_export.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* Stats page (full page) */
+function openStatsPage(){
+  document.getElementById('main-page').style.display = 'none';
+  document.getElementById('main-controls').style.display = 'none';
+  document.getElementById('stats-page').style.display = 'block';
+  renderStatsTable();
+}
+function renderStatsTable(){
+  const tbody = document.querySelector('#stats-table tbody');
+  tbody.innerHTML = '';
+  const summary = document.getElementById('stats-summary');
+  const counts = {
+    single: rooms.filter(r=>r.type==='single').length,
+    double: rooms.filter(r=>r.type==='double').length,
+    twin: rooms.filter(r=>r.type==='twin').length
+  };
+  const people = {
+    single: rooms.filter(r=>r.type==='single').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0),
+    double: rooms.filter(r=>r.type==='double').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0),
+    twin: rooms.filter(r=>r.type==='twin').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0)
+  };
+  summary.innerHTML = `<b>Single:</b> ${counts.single} rooms, ${people.single} people<br><b>Double:</b> ${counts.double} rooms, ${people.double} people<br><b>Twin:</b> ${counts.twin} rooms, ${people.twin} people`;
+
+  rooms.forEach(r=>{
+    if(Array.isArray(r.people) && r.people.length){
+      r.people.forEach(p=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.name}</td><td>${r.type}</td><td>${r.max}</td><td>${p.name}</td><td>${p.time}</td>`;
+        tbody.appendChild(tr);
+      });
+    } else {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.name}</td><td>${r.type}</td><td>${r.max}</td><td>-</td><td>-</td>`;
+      tbody.appendChild(tr);
+    }
+  });
+}
+function backToMain(){
+  document.getElementById('stats-page').style.display = 'none';
+  document.getElementById('main-page').style.display = 'grid';
+  document.getElementById('main-controls').style.display = 'flex';
+}
+
+/* Init */
+ensureDefaultsAndSave();
+render();
+
 </script>
 </body>
 </html>
