@@ -69,43 +69,31 @@
   </div>
 </div>
 
-<!-- Main page -->
+<!-- Sections -->
 <div class="sections-wrap" id="main-page">
-  <div class="section" id="section-single">
-    <div class="header">
-      <h2>Single Rooms</h2>
-      <div class="controls-inline">
-        <button class="ghost admin-only" id="single-remove">− Remove Room</button>
-        <button class="ghost" id="single-add">＋ Add Room</button>
-      </div>
-    </div>
-    <div class="room-grid" id="grid-single"></div>
+  <div class="section">
+    <div class="header"><h2>Single Rooms</h2><div class="controls-inline">
+      <button class="ghost admin-only" id="single-remove">− Remove Room</button>
+      <button class="ghost" id="single-add">＋ Add Room</button>
+    </div></div><div class="room-grid" id="grid-single"></div>
   </div>
 
-  <div class="section" id="section-double">
-    <div class="header">
-      <h2>Double Rooms</h2>
-      <div class="controls-inline">
-        <button class="ghost admin-only" id="double-remove">− Remove Room</button>
-        <button class="ghost" id="double-add">＋ Add Room</button>
-      </div>
-    </div>
-    <div class="room-grid" id="grid-double"></div>
+  <div class="section">
+    <div class="header"><h2>Double Rooms</h2><div class="controls-inline">
+      <button class="ghost admin-only" id="double-remove">− Remove Room</button>
+      <button class="ghost" id="double-add">＋ Add Room</button>
+    </div></div><div class="room-grid" id="grid-double"></div>
   </div>
 
-  <div class="section" id="section-twin">
-    <div class="header">
-      <h2>Twin Room (two separate single beds)</h2>
-      <div class="controls-inline">
-        <button class="ghost admin-only" id="twin-remove">− Remove Room</button>
-        <button class="ghost" id="twin-add">＋ Add Room</button>
-      </div>
-    </div>
-    <div class="room-grid" id="grid-twin"></div>
+  <div class="section">
+    <div class="header"><h2>Twin Rooms (two separate single beds)</h2><div class="controls-inline">
+      <button class="ghost admin-only" id="twin-remove">− Remove Room</button>
+      <button class="ghost" id="twin-add">＋ Add Room</button>
+    </div></div><div class="room-grid" id="grid-twin"></div>
   </div>
 </div>
 
-<!-- Stats Page -->
+<!-- Stats page -->
 <div class="stats-page" id="stats-page">
   <h2>📊 Room Statistics</h2>
   <div id="stats-summary"></div>
@@ -113,7 +101,7 @@
     <thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Occupant</th><th>Registered Time</th></tr></thead>
     <tbody></tbody>
   </table>
-  <button class="back-btn" onclick="backToMain()">← Back to Main Page</button>
+  <button class="back-btn" onclick="backToMain()">← Back</button>
 </div>
 
 <!-- Modal -->
@@ -121,11 +109,8 @@
   <div class="modal-panel">
     <h3 id="modalTitle">Room</h3>
     <div class="sub" id="modalSub">Details</div>
-
     <div class="occupant-list" id="occupantList"></div>
-
-    <input id="nameInput" class="input" placeholder="Enter your name" autocomplete="off"/>
-
+    <input id="nameInput" class="input" placeholder="Enter your name" />
     <div class="row">
       <button class="btn register" id="registerBtn">Register</button>
       <button class="btn close" id="closeBtn">Close</button>
@@ -133,12 +118,12 @@
   </div>
 </div>
 
-<!-- Firebase SDK (compat) -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
 <script>
-// ===== CONFIG (you provided this) =====
+// ==== Firebase Config ====
 const firebaseConfig = {
   apiKey: "AIzaSyDkLZiqaOlsdhVmDABQQjkIk09XRGsXJFs",
   authDomain: "room-booking-app-c7db8.firebaseapp.com",
@@ -149,390 +134,207 @@ const firebaseConfig = {
   appId: "1:343921663087:web:2413b98b2c2bf452f2c19a",
   measurementId: "G-04HNG2JS2N"
 };
-// ======================================
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+// ==========================
 
-// Admin password (kept simple; change if needed)
 const ADMIN_PASS = '0977549979';
-
-// Global state
-let rooms = []; // array of { name, type, max, people: [{name, time}, ...] }
+let rooms = [];
 let currentRoomIndex = null;
 let isAdmin = false;
 
-// Helpers
-function nowString(){
-  return new Date().toLocaleString();
+const gridSingle=document.getElementById('grid-single'),
+      gridDouble=document.getElementById('grid-double'),
+      gridTwin=document.getElementById('grid-twin'),
+      totalInfo=document.getElementById('totalInfo');
+
+// 🔹 INIT DB ONLY ONCE
+function initializeOnceIfEmpty(){
+  db.ref('rooms').once('value').then(snap=>{
+    if(!snap.exists()){
+      console.log('Database empty → initializing default rooms');
+      const defaults=[];
+      for(let i=1;i<=5;i++)defaults.push({name:`Single Room ${i}`,type:'single',max:1,people:[]});
+      for(let i=1;i<=5;i++)defaults.push({name:`Double Room ${i}`,type:'double',max:2,people:[]});
+      for(let i=1;i<=5;i++)defaults.push({name:`Twin Room ${i}`,type:'twin',max:2,people:[]});
+      db.ref('rooms').set(defaults);
+    }
+  });
 }
 
-function saveRoomsToFirebase(){
-  // write entire rooms array to /rooms node
-  db.ref('rooms').set(rooms).catch(err => console.error('Firebase write error:', err));
-}
-
-function ensureDefaultsAndSave(){
-  if(!rooms || !Array.isArray(rooms) || rooms.length === 0){
-    // create default: 5 rooms each type
-    rooms = [];
-    for(let i=1;i<=5;i++) rooms.push({ name:`Single Room ${i}`, type:'single', max:1, people:[] });
-    for(let i=1;i<=5;i++) rooms.push({ name:`Double Room ${i}`, type:'double', max:2, people:[] });
-    for(let i=1;i<=5;i++) rooms.push({ name:`Twin Room ${i}`, type:'twin', max:2, people:[] });
-    saveRoomsToFirebase();
-  }
-}
-
-// Real-time listener (keeps local data synced)
-db.ref('rooms').on('value', snapshot => {
-  const val = snapshot.val();
-  if(val === null){
-    rooms = [];
-    ensureDefaultsAndSave();
-    render();
-    return;
-  }
-  // Firebase may store arrays as objects; normalize to array
-  if(Array.isArray(val)) rooms = val;
-  else {
-    // val might be object with numeric keys or others; convert to array by index order
-    const arr = [];
-    Object.keys(val).forEach(k => {
-      // if key numeric index, push at corresponding, else push at end
-      if(!isNaN(parseInt(k))) arr[parseInt(k)] = val[k];
-      else arr.push(val[k]);
-    });
-    // compact undefined holes
-    rooms = arr.filter(r => r !== undefined);
-  }
-  // make sure structure OK
-  rooms = rooms.map(r => ({
-    name: r.name || 'Room',
-    type: r.type || 'double',
-    max: (typeof r.max === 'number') ? r.max : (r.type === 'single' ? 1 : 2),
-    people: Array.isArray(r.people) ? r.people : []
-  }));
-  ensureDefaultsAndSave();
+// 🔹 REALTIME LISTENER
+db.ref('rooms').on('value',snap=>{
+  const val=snap.val();
+  if(!val) return;
+  rooms=Array.isArray(val)?val:Object.values(val);
   render();
 });
 
-// UI wiring
-const gridSingle = document.getElementById('grid-single');
-const gridDouble = document.getElementById('grid-double');
-const gridTwin = document.getElementById('grid-twin');
-const totalInfo = document.getElementById('totalInfo');
+initializeOnceIfEmpty();
+
+function nowString(){return new Date().toLocaleString();}
+function saveRooms(){db.ref('rooms').set(rooms);}
 
 function render(){
-  // clear
-  gridSingle.innerHTML = '';
-  gridDouble.innerHTML = '';
-  gridTwin.innerHTML = '';
-
-  rooms.forEach((r, idx) => {
-    const card = document.createElement('div');
-    card.className = 'room-card' + (r.people.length >= r.max ? ' locked' : '');
-    card.innerHTML = `
-      <div class="room-icon">🚪</div>
+  gridSingle.innerHTML='';gridDouble.innerHTML='';gridTwin.innerHTML='';
+  rooms.forEach((r,i)=>{
+    const div=document.createElement('div');
+    div.className='room-card'+(r.people.length>=r.max?' locked':'');
+    div.innerHTML=`<div class="room-icon">🚪</div>
       <div class="room-name">${r.name}</div>
-      <div class="room-occupants">${ r.people.length ? r.people.map(p=>p.name).join('<br>') : '<i style="color:#9a9a9a">No occupants</i>' }</div>
-      <div style="margin-top:8px; font-size:12px; color:var(--muted)">${r.people.length}/${r.max} occupants</div>
-    `;
-    card.addEventListener('click', ()=> {
-      if(r.people.length >= r.max){
-        alert('This room is full.');
-        return;
-      }
-      openModal(idx);
-    });
-    if(r.type === 'single') gridSingle.appendChild(card);
-    else if(r.type === 'double') gridDouble.appendChild(card);
-    else gridTwin.appendChild(card);
+      <div class="room-occupants">${r.people.length?r.people.map(p=>p.name).join('<br>'):'<i style="color:#aaa">No occupants</i>'}</div>
+      <div style="margin-top:6px;font-size:12px;color:#777">${r.people.length}/${r.max} occupants</div>`;
+    div.onclick=()=>{if(r.people.length<r.max)openModal(i);else alert('This room is full.');};
+    if(r.type==='single')gridSingle.appendChild(div);
+    else if(r.type==='double')gridDouble.appendChild(div);
+    else gridTwin.appendChild(div);
   });
-
-  const totalPeople = rooms.reduce((s,r)=>s + (Array.isArray(r.people) ? r.people.length : 0), 0);
-  const counts = {
-    single: rooms.filter(r=>r.type==='single').length,
-    double: rooms.filter(r=>r.type==='double').length,
-    twin: rooms.filter(r=>r.type==='twin').length
-  };
-  totalInfo.textContent = `Total: ${rooms.length} rooms • ${totalPeople} people (Single:${counts.single} • Double:${counts.double} • Twin:${counts.twin})`;
-
-  // Show/hide admin-only controls
-  document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? 'inline-block' : 'none');
+  const totalPeople=rooms.reduce((s,r)=>s+r.people.length,0);
+  totalInfo.textContent=`Total: ${rooms.length} rooms • ${totalPeople} people`;
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin?'inline-block':'none');
 }
 
-/* Add / Remove Rooms */
+// ADD/REMOVE
 function addRoom(type){
-  const base = type === 'single' ? 'Single Room' : type === 'double' ? 'Double Room' : 'Twin Room';
-  const count = rooms.filter(r=>r.type===type).length;
-  const name = prompt('Enter new room name:', `${base} ${count+1}`);
-  if(!name) return;
-  const max = type === 'single' ? 1 : 2;
-  rooms.push({ name, type, max, people:[] });
-  // save
-  saveRoomsToFirebase();
+  const base=type==='single'?'Single Room':type==='double'?'Double Room':'Twin Room';
+  const count=rooms.filter(r=>r.type===type).length;
+  const name=prompt('Room name:',`${base} ${count+1}`);if(!name)return;
+  const max=type==='single'?1:2;
+  rooms.push({name,type,max,people:[]});
+  saveRooms();
 }
 function removeRoom(type){
-  if(!isAdmin) return alert('Only admin can remove rooms.');
-  const list = rooms.map((r,i)=>({ ...r, __idx:i })).filter(r=>r.type===type);
-  if(list.length === 0) return alert('No rooms to remove.');
-  const last = list[list.length - 1];
-  if(!confirm(`Remove ${last.name}? This will remove occupants too.`)) return;
-  rooms.splice(last.__idx, 1);
-  // reindex default-style names within type if you want contiguous names
-  reindexNames(type);
-  saveRoomsToFirebase();
+  if(!isAdmin)return alert('Admin only.');
+  const list=rooms.filter(r=>r.type===type);
+  if(!list.length)return alert('No room to remove.');
+  const lastIndex=rooms.lastIndexOf(list[list.length-1]);
+  if(confirm(`Delete ${list[list.length-1].name}?`)){rooms.splice(lastIndex,1);saveRooms();}
 }
-function reindexNames(type){
-  const base = type === 'single' ? 'Single Room' : type === 'double' ? 'Double Room' : 'Twin Room';
-  let counter = 1;
-  rooms.forEach((r, i) => {
-    if(r.type === type){
-      // rename only if current name matches default pattern or we want strict renaming
-      r.name = `${base} ${counter++}`;
-    }
+document.getElementById('single-add').onclick=()=>addRoom('single');
+document.getElementById('double-add').onclick=()=>addRoom('double');
+document.getElementById('twin-add').onclick=()=>addRoom('twin');
+document.getElementById('single-remove').onclick=()=>removeRoom('single');
+document.getElementById('double-remove').onclick=()=>removeRoom('double');
+document.getElementById('twin-remove').onclick=()=>removeRoom('twin');
+
+// MODAL
+const modal=document.getElementById('modal'),
+      modalTitle=document.getElementById('modalTitle'),
+      modalSub=document.getElementById('modalSub'),
+      occupantList=document.getElementById('occupantList'),
+      nameInput=document.getElementById('nameInput');
+function openModal(i){currentRoomIndex=i;const r=rooms[i];
+  modalTitle.textContent=r.name;modalSub.textContent=`Capacity: ${r.max}`;
+  renderOccupants(r);modal.classList.add('open');}
+function closeModal(){modal.classList.remove('open');}
+function renderOccupants(r){
+  occupantList.innerHTML='';
+  if(!r.people.length)return occupantList.innerHTML='<div class="occupant-item">No occupants yet</div>';
+  r.people.forEach((p,j)=>{
+    const item=document.createElement('div');item.className='occupant-item';
+    item.innerHTML=`<div>${p.name} <small style="color:#777">(${p.time})</small></div>`;
+    const btn=document.createElement('button');btn.textContent='Remove';
+    btn.style.display=isAdmin?'inline':'none';
+    btn.onclick=()=>{if(confirm(`Remove ${p.name}?`)){r.people.splice(j,1);saveRooms();}};
+    item.appendChild(btn);occupantList.appendChild(item);
   });
 }
+document.getElementById('registerBtn').onclick=()=>{
+  const name=nameInput.value.trim();if(!name)return alert('Enter name');
+  const r=rooms[currentRoomIndex];if(r.people.length>=r.max)return alert('Room full');
+  r.people.push({name,time:nowString()});saveRooms();closeModal();
+};
+document.getElementById('closeBtn').onclick=closeModal;
+modal.onclick=e=>{if(e.target===modal)closeModal();};
 
-/* Button wiring */
-document.getElementById('single-add').addEventListener('click', ()=>addRoom('single'));
-document.getElementById('double-add').addEventListener('click', ()=>addRoom('double'));
-document.getElementById('twin-add').addEventListener('click', ()=>addRoom('twin'));
-
-document.getElementById('single-remove').addEventListener('click', ()=>removeRoom('single'));
-document.getElementById('double-remove').addEventListener('click', ()=>removeRoom('double'));
-document.getElementById('twin-remove').addEventListener('click', ()=>removeRoom('twin'));
-
-/* Modal: register & occupants */
-const modal = document.getElementById('modal');
-const modalTitle = document.getElementById('modalTitle');
-const modalSub = document.getElementById('modalSub');
-const occupantList = document.getElementById('occupantList');
-const nameInput = document.getElementById('nameInput');
-const registerBtn = document.getElementById('registerBtn');
-const closeBtn = document.getElementById('closeBtn');
-
-function openModal(index){
-  currentRoomIndex = index;
-  const r = rooms[index];
-  modalTitle.textContent = r.name;
-  modalSub.textContent = `Capacity: ${r.max} • Registered: ${Array.isArray(r.people)?r.people.length:0}`;
-  renderOccupants(r);
-  nameInput.value = '';
-  nameInput.focus();
-  modal.classList.add('open');
-  modal.setAttribute('aria-hidden','false');
-}
-function closeModal(){
-  modal.classList.remove('open');
-  modal.setAttribute('aria-hidden','true');
-  currentRoomIndex = null;
-}
-function renderOccupants(room){
-  occupantList.innerHTML = '';
-  if(!Array.isArray(room.people) || room.people.length === 0){
-    occupantList.innerHTML = '<div class="occupant-item">No occupants yet</div>';
-    return;
-  }
-  room.people.forEach((p, i) => {
-    const item = document.createElement('div');
-    item.className = 'occupant-item';
-    item.innerHTML = `<div>${p.name} <small style="color:#666">(${p.time})</small></div>`;
-    const btn = document.createElement('button');
-    btn.textContent = 'Remove';
-    btn.style.display = isAdmin ? 'inline-block' : 'none';
-    btn.onclick = (ev) => {
-      ev.stopPropagation();
-      if(!isAdmin){ alert('Admin only to remove occupants.'); return; }
-      if(confirm(`Remove ${p.name} from ${room.name}?`)){
-        room.people.splice(i,1);
-        saveRoomsToFirebase();
-      }
-    };
-    item.appendChild(btn);
-    occupantList.appendChild(item);
-  });
-}
-
-registerBtn.addEventListener('click', ()=>{
-  if(currentRoomIndex === null) return;
-  const name = nameInput.value.trim();
-  if(!name) return alert('Please enter a name.');
-  const r = rooms[currentRoomIndex];
-  if(!Array.isArray(r.people)) r.people = [];
-  if(r.people.length >= r.max) return alert('This room is full.');
-  r.people.push({ name, time: nowString() });
-  saveRoomsToFirebase();
-  closeModal();
-});
-closeBtn.addEventListener('click', closeModal);
-modal.addEventListener('click', (ev)=> { if(ev.target === modal) closeModal(); });
-
-/* Admin */
-document.getElementById('openAdmin').addEventListener('click', promptAdmin);
-document.getElementById('exportCsvBtn').addEventListener('click', ()=>{ if(!isAdmin) return alert('Admin only.'); exportCSV(); });
-
-function promptAdmin(){
-  const pass = prompt('Enter admin password:');
-  if(pass === ADMIN_PASS){
-    isAdmin = true;
-    alert('Admin logged in.');
-    render();
-    showAdminMenu();
-  } else {
-    alert('Wrong password.');
-  }
-}
-
+// ADMIN
+document.getElementById('openAdmin').onclick=()=>{
+  const pass=prompt('Admin password:');
+  if(pass===ADMIN_PASS){isAdmin=true;alert('Admin logged in');render();showAdminMenu();}
+  else alert('Wrong password');
+};
 function showAdminMenu(){
-  const totalPeople = rooms.reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0), 0);
-  const totalRooms = rooms.length;
-  const choice = prompt(
-`Admin Panel
-Total Rooms: ${totalRooms}
-Total People: ${totalPeople}
-
-Options:
-1 - Show Statistics
-2 - Delete Person by Name
-3 - Delete Room by Name
-4 - Reset All Data
+  const choice=prompt(`Admin Options:
+1 - Statistics
+2 - Delete Person
+3 - Delete Room
+4 - Reset Data
 5 - Export CSV
-6 - Open Statistics Page
-Enter option number:` );
-  if(!choice) return;
-  switch(choice.trim()){
-    case '1': adminStats(); break;
-    case '2': adminDeletePerson(); break;
-    case '3': adminDeleteRoomByName(); break;
-    case '4': adminReset(); break;
-    case '5': exportCSV(); break;
-    case '6': openStatsPage(); break;
-    default: alert('Unknown option.');
+6 - Open Stats Page`);
+  if(!choice)return;
+  switch(choice){
+    case'1':adminStats();break;
+    case'2':adminDelPerson();break;
+    case'3':adminDelRoom();break;
+    case'4':adminReset();break;
+    case'5':exportCSV();break;
+    case'6':openStatsPage();break;
   }
 }
-
-/* Admin utilities */
 function adminStats(){
-  const singleCount = rooms.filter(r=>r.type==='single').length;
-  const doubleCount = rooms.filter(r=>r.type==='double').length;
-  const twinCount = rooms.filter(r=>r.type==='twin').length;
-  const singlePeople = rooms.filter(r=>r.type==='single').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0);
-  const doublePeople = rooms.filter(r=>r.type==='double').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0);
-  const twinPeople = rooms.filter(r=>r.type==='twin').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0);
-  alert(`Statistics:\nSingle: ${singleCount} rooms, ${singlePeople} people\nDouble: ${doubleCount} rooms, ${doublePeople} people\nTwin: ${twinCount} rooms, ${twinPeople} people`);
+  const c={single:0,double:0,twin:0},p={single:0,double:0,twin:0};
+  rooms.forEach(r=>{c[r.type]++;p[r.type]+=r.people.length;});
+  alert(`Single: ${c.single} rooms, ${p.single} people
+Double: ${c.double} rooms, ${p.double} people
+Twin: ${c.twin} rooms, ${p.twin} people`);
 }
-
-function adminDeletePerson(){
-  const name = prompt('Enter exact person name to remove from all rooms:');
-  if(!name) return;
-  let removed = 0;
-  rooms.forEach(r => {
-    if(Array.isArray(r.people)){
-      const before = r.people.length;
-      r.people = r.people.filter(p => p.name !== name);
-      removed += (before - r.people.length);
-    }
-  });
-  saveRoomsToFirebase();
-  alert(`Removed ${removed} entries for "${name}".`);
+function adminDelPerson(){
+  const n=prompt('Person name:');if(!n)return;
+  rooms.forEach(r=>r.people=r.people.filter(p=>p.name!==n));saveRooms();alert('Removed.');
 }
-
-function adminDeleteRoomByName(){
-  const name = prompt('Enter exact room name to delete (e.g. "Double Room 3"):');
-  if(!name) return;
-  const idx = rooms.findIndex(r=>r.name === name);
-  if(idx === -1) return alert('Room not found.');
-  if(!confirm(`Delete room "${name}"?`)) return;
-  const type = rooms[idx].type;
-  rooms.splice(idx,1);
-  reindexNames(type);
-  saveRoomsToFirebase();
-  alert('Room deleted.');
+function adminDelRoom(){
+  const n=prompt('Room name to delete:');if(!n)return;
+  const i=rooms.findIndex(r=>r.name===n);if(i===-1)return alert('Not found');
+  if(confirm(`Delete ${n}?`)){rooms.splice(i,1);saveRooms();alert('Deleted');}
 }
-
 function adminReset(){
-  if(!confirm('Reset all data to default (5 rooms per type)?')) return;
-  rooms = [];
-  for(let i=1;i<=5;i++) rooms.push({ name:`Single Room ${i}`, type:'single', max:1, people:[] });
-  for(let i=1;i<=5;i++) rooms.push({ name:`Double Room ${i}`, type:'double', max:2, people:[] });
-  for(let i=1;i<=5;i++) rooms.push({ name:`Twin Room ${i}`, type:'twin', max:2, people:[] });
-  saveRoomsToFirebase();
-  alert('Reset complete.');
+  if(!confirm('Reset all data?'))return;
+  const def=[];for(let i=1;i<=5;i++)def.push({name:`Single Room ${i}`,type:'single',max:1,people:[]});
+  for(let i=1;i<=5;i++)def.push({name:`Double Room ${i}`,type:'double',max:2,people:[]});
+  for(let i=1;i<=5;i++)def.push({name:`Twin Room ${i}`,type:'twin',max:2,people:[]});
+  db.ref('rooms').set(def);alert('Reset done.');
 }
-
-/* Export CSV (admin) */
 function exportCSV(){
-  const rows = [];
-  rows.push(['Room','Type','Capacity','Occupant','RegisteredTime'].join(','));
+  const rows=[['Room','Type','Capacity','Name','Time']];
   rooms.forEach(r=>{
-    if(Array.isArray(r.people) && r.people.length){
-      r.people.forEach(p=>{
-        rows.push([`"${r.name}"`, r.type, r.max, `"${p.name}"`, `"${p.time}"`].join(','));
-      });
-    } else {
-      rows.push([`"${r.name}"`, r.type, r.max, '',''].join(','));
-    }
+    if(r.people.length)r.people.forEach(p=>rows.push([r.name,r.type,r.max,p.name,p.time]));
+    else rows.push([r.name,r.type,r.max,'','']);
   });
-  const csv = rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'rooms_export.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='rooms.csv';a.click();
 }
 
-/* Stats page (full page) */
+// STATS PAGE
 function openStatsPage(){
-  document.getElementById('main-page').style.display = 'none';
-  document.getElementById('main-controls').style.display = 'none';
-  document.getElementById('stats-page').style.display = 'block';
+  document.getElementById('main-page').style.display='none';
+  document.getElementById('main-controls').style.display='none';
+  document.getElementById('stats-page').style.display='block';
   renderStatsTable();
 }
+function backToMain(){
+  document.getElementById('stats-page').style.display='none';
+  document.getElementById('main-page').style.display='grid';
+  document.getElementById('main-controls').style.display='flex';
+}
 function renderStatsTable(){
-  const tbody = document.querySelector('#stats-table tbody');
-  tbody.innerHTML = '';
-  const summary = document.getElementById('stats-summary');
-  const counts = {
-    single: rooms.filter(r=>r.type==='single').length,
-    double: rooms.filter(r=>r.type==='double').length,
-    twin: rooms.filter(r=>r.type==='twin').length
-  };
-  const people = {
-    single: rooms.filter(r=>r.type==='single').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0),
-    double: rooms.filter(r=>r.type==='double').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0),
-    twin: rooms.filter(r=>r.type==='twin').reduce((s,r)=>s + (Array.isArray(r.people)?r.people.length:0),0)
-  };
-  summary.innerHTML = `<b>Single:</b> ${counts.single} rooms, ${people.single} people<br><b>Double:</b> ${counts.double} rooms, ${people.double} people<br><b>Twin:</b> ${counts.twin} rooms, ${people.twin} people`;
-
+  const tbody=document.querySelector('#stats-table tbody');tbody.innerHTML='';
+  const s=document.getElementById('stats-summary');
+  const counts={single:0,double:0,twin:0},peo={single:0,double:0,twin:0};
+  rooms.forEach(r=>{counts[r.type]++;peo[r.type]+=r.people.length;});
+  s.innerHTML=`Single: ${counts.single} rooms, ${peo.single} people<br>Double: ${counts.double} rooms, ${peo.double} people<br>Twin: ${counts.twin} rooms, ${peo.twin} people`;
   rooms.forEach(r=>{
-    if(Array.isArray(r.people) && r.people.length){
-      r.people.forEach(p=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${r.name}</td><td>${r.type}</td><td>${r.max}</td><td>${p.name}</td><td>${p.time}</td>`;
-        tbody.appendChild(tr);
-      });
-    } else {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.name}</td><td>${r.type}</td><td>${r.max}</td><td>-</td><td>-</td>`;
+    if(r.people.length)r.people.forEach(p=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${r.name}</td><td>${r.type}</td><td>${r.max}</td><td>${p.name}</td><td>${p.time}</td>`;
+      tbody.appendChild(tr);
+    });
+    else{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${r.name}</td><td>${r.type}</td><td>${r.max}</td><td>-</td><td>-</td>`;
       tbody.appendChild(tr);
     }
   });
 }
-function backToMain(){
-  document.getElementById('stats-page').style.display = 'none';
-  document.getElementById('main-page').style.display = 'grid';
-  document.getElementById('main-controls').style.display = 'flex';
-}
-
-/* Init */
-ensureDefaultsAndSave();
-render();
-
 </script>
 </body>
 </html>
